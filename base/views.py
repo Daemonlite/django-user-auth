@@ -55,7 +55,6 @@ def register_user(request):
     return HttpResponse(status=405)
 
 @csrf_exempt
-
 def login_user(request):
    
     if request.method != 'POST':
