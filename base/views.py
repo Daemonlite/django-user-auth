@@ -7,6 +7,7 @@ from .models import CustomUserModel
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
+from django.middleware import csrf
 
 
 @csrf_exempt
@@ -76,7 +77,8 @@ def login_user(request):
 
     if user.check_password(password):
         login(request, user)
-
+        
+        csrf_token = csrf.get_token(request)
         response_data = {
             'message': 'Logged in successfully',
             'user': {
@@ -84,19 +86,20 @@ def login_user(request):
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
-                'password':user.password
+                'password':user.password,
+                'csrf_token':csrf_token
             }
         }
         return JsonResponse(response_data)
     else:
         return JsonResponse({'message': 'Invalid credentials'}, status=401)
 
-@csrf_exempt
+
 def logout_user(request):
     logout(request)
     return JsonResponse({'message': 'Logged out successfully'})
 
-@csrf_exempt
+#get user by id
 def get_user(request, user_id):
     user = get_object_or_404(CustomUserModel, pk=user_id)
     data = {
@@ -106,4 +109,27 @@ def get_user(request, user_id):
         'last_name': user.last_name,
     }
     return JsonResponse(data)
+
+def get_users(request):
+    if request.method == 'GET':
+        # Get all users from the database
+        users = CustomUserModel.objects.all()
+
+        # Serialize the user data to create the JSON response
+        user_list = []
+        for user in users:
+            user_data = {
+                'id': user.id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                # Add any other fields you want to include in the response
+            }
+            user_list.append(user_data)
+
+        # Return the JSON response with all users
+        response_data = {'users': user_list}
+        return JsonResponse(response_data)
+
+    return JsonResponse({'message': 'Method not allowed'}, status=405)
 
