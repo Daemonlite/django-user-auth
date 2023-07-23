@@ -8,7 +8,13 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.middleware import csrf
+from django.core.cache import cache
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from django.core.cache.backends.base import DEFAULT_TIMEOUT
 
+# Set the cache timeout in seconds (2 minutes in this case)
+CACHE_TIMEOUT = 120
 
 @csrf_exempt
 def register_user(request):
@@ -101,14 +107,25 @@ def logout_user(request):
 
 #get user by id
 def get_user(request, user_id):
-    user = get_object_or_404(CustomUserModel, pk=user_id)
-    data = {
-        'id': user.id,
-        'email': user.email,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-    }
-    return JsonResponse(data)
+    # Check if the user data exists in the cache
+    cache_key = f'user_{user_id}'
+    user_data = cache.get(cache_key)
+
+    if user_data is None:
+        # If the data is not in the cache, retrieve it from the database
+        user = get_object_or_404(CustomUserModel, pk=user_id)
+        user_data = {
+            'id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+        }
+
+        # Store the user data in the cache with the specified timeout
+        cache.set(cache_key, user_data, CACHE_TIMEOUT)
+
+    return JsonResponse(user_data)
+
 
 def get_users(request):
     if request.method == 'GET':
